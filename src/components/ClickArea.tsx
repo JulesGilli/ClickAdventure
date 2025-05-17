@@ -1,0 +1,44 @@
+import React, { useState } from 'react';
+import { MousePointerClickIcon } from 'lucide-react';
+export function ClickArea({
+  handleClick,
+  pointsPerClick,
+  multiplier
+}) {
+  const [clickEffects, setClickEffects] = useState([]);
+  const handleAreaClick = e => {
+    handleClick();
+    // Create click effect
+    const id = Date.now();
+    const x = e.nativeEvent.offsetX;
+    const y = e.nativeEvent.offsetY;
+    const points = pointsPerClick * multiplier;
+    setClickEffects(prev => [...prev, {
+      id,
+      x,
+      y,
+      points: Math.floor(points)
+    }]);
+    // Remove effect after animation completes
+    setTimeout(() => {
+      setClickEffects(prev => prev.filter(effect => effect.id !== id));
+    }, 1000);
+  };
+  return <div className="relative">
+      <button onClick={handleAreaClick} className="w-full h-40 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center hover:from-blue-500 hover:to-purple-500 transition-colors shadow-lg overflow-hidden relative">
+        <div className="absolute inset-0 bg-white opacity-0 hover:opacity-10 transition-opacity"></div>
+        <div className="flex flex-col items-center">
+          <MousePointerClickIcon className="w-12 h-12 mb-2 animate-bounce" />
+          <span className="text-xl font-bold">CLICK ME!</span>
+        </div>
+      </button>
+      {/* Click effects */}
+      {clickEffects.map(effect => <div key={effect.id} className="absolute pointer-events-none text-yellow-300 font-bold text-lg animate-fly-up" style={{
+      left: `${effect.x}px`,
+      top: `${effect.y}px`,
+      textShadow: '0 0 5px rgba(0,0,0,0.5)'
+    }}>
+          +{effect.points}
+        </div>)}
+    </div>;
+}
