@@ -4,6 +4,8 @@ import { ResourceDisplay } from './ResourceDisplay';
 import { UpgradeShop } from './UpgradeShop';
 import { AchievementPanel } from './AchievementPanel';
 import { SpecialAbilities } from './SpecialAbilities';
+import { ResetPanel } from './ResetPanel';
+import { CrystalShop, POSSIBLE_BONUSES } from './CrystalShop'
 import { TrophyIcon, ShoppingCartIcon, SparklesIcon } from 'lucide-react';
 
 // Types
@@ -65,6 +67,10 @@ export function ClickerGame() {
   const [abilityUses, setAbilityUses] = useState(0);
   const [resetCount, setResetCount] = useState(0);
   const [autoBuyEnabled, setAutoBuyEnabled] = useState(false);
+  const [crystals, setCrystals] = useState(0);
+  const [activeDraws, setActiveDraws] = useState<BonusDraw[]>([]);
+
+  type BonusDraw = (typeof POSSIBLE_BONUSES)[number] & { id: number };
 
   const [upgrades, setUpgrades] = useState<Upgrades>(() => {
     const baseUpgrades: Record<UpgradeType, { cost: number; increment: number }> = {
@@ -145,15 +151,19 @@ export function ClickerGame() {
   const [activeTab, setActiveTab] = useState<'upgrades' | 'abilities' | 'achievements'>('upgrades');
 
   const handlePrestigeReset = () => {
-    const bonus = Math.floor(points / 1_000_000);
-    if (bonus > 0) setPrestigeMultiplier(prev => prev + bonus);
-    setResetCount(prev => prev + 1);
+    const earnedCrystals = Math.floor(Math.sqrt(points / 1000));
+    if (earnedCrystals > 0) {
+      setCrystals(prev => prev + earnedCrystals);
+    }
+  
+    // Reset progress
     setPoints(0);
     setPointsPerClick(1);
     setPointsPerSecond(0);
     setMultiplier(1);
     setClickCount(0);
-
+    setResetCount(prev => prev + 1);
+  
     setResetCount(prev => {
       const newCount = prev + 1;
       if (newCount === 1) setAutoBuyEnabled(true);
@@ -172,6 +182,7 @@ export function ClickerGame() {
         tier: 1
       };
     });
+
     setUpgrades(resetUpgrades);
 
     setAbilities([
@@ -386,17 +397,12 @@ export function ClickerGame() {
         {activeTab === 'abilities' && <SpecialAbilities abilities={abilities} points={points} useAbility={useAbility} />}
         {activeTab === 'achievements' && <AchievementPanel achievements={achievements} />}
         {points >= 1_000_000 && (
-          <div
- className="mt-4 text-center">
-            <button
-              onClick={handlePrestigeReset}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-4 py-2 rounded-xl shadow-lg transition-colors"
-            >
-              <span className="animate-bounce">RESET for Prestige</span>
-            </button>
-            <p className="text-sm text-gray-400 mt-2">Current Prestige Bonus: x{prestigeMultiplier}</p>
-          </div>
-        )}
+  <ResetPanel
+    points={points}
+    crystalsToEarn={Math.floor(Math.sqrt(points / 1000))}
+    onReset={handlePrestigeReset}
+  />
+)}
       </div>
     </div>
   );
