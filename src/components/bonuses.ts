@@ -1,3 +1,11 @@
+export type BonusType = {
+    id: number;
+    name: string;
+    rarity: 'common' | 'rare' | 'epic';
+    bonus: number;
+    type: 'clickMultiplier' | 'autoMultiplier' | 'prestigeMultiplier';
+  };
+
 export const POSSIBLE_BONUSES = [
     {
       id: 1,

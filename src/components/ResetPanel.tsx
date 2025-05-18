@@ -1,15 +1,16 @@
 import { RefreshCwIcon } from 'lucide-react'
 
-interface ResetPanelProps {
-  points: number
-  crystalsToEarn: number
-  onReset: () => void
-}
+type ResetPanelProps = {
+    points: number;
+    crystalsToEarn: number;
+    onReset: () => void;
+    canReset: boolean;
+  };
 
 export function ResetPanel({ points, crystalsToEarn, onReset }: ResetPanelProps) {
   return (
     <div className="bg-gray-800 bg-opacity-50 p-6 rounded-lg text-center">
-      <h3 className="text-2xl font-bold mb-4">Reset Progress</h3>
+      <h3 className="text-2xl font-bold mb-4">Prestige Reset</h3>
       <p className="text-gray-300 mb-6">
         Reset all your progress to earn crystals. Crystals can be used for permanent bonuses.
       </p>
@@ -23,12 +24,15 @@ export function ResetPanel({ points, crystalsToEarn, onReset }: ResetPanelProps)
         </p>
       </div>
       <button
-        onClick={onReset}
-        className="bg-red-600 hover:bg-red-500 text-white px-6 py-3 rounded-lg font-bold flex items-center justify-center mx-auto"
-      >
-        <RefreshCwIcon className="w-5 h-5 mr-2" />
-        Reset Progress
-      </button>
+  onClick={onReset}
+  className="w-full h-40 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center hover:from-blue-500 hover:to-purple-500 transition-colors shadow-lg overflow-hidden relative"
+>
+  <div className="absolute inset-0 bg-white opacity-0 hover:opacity-10 transition-opacity"></div>
+  <div className="flex flex-col items-center">
+    <RefreshCwIcon className="w-8 h-8 mb-2 animate-spin-slow" />
+    <span className="text-xl font-bold">PRESTIGE RESET</span>
+  </div>
+</button>
     </div>
   )
 }

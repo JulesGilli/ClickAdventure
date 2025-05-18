@@ -5,9 +5,9 @@ import { UpgradeShop } from './UpgradeShop';
 import { AchievementPanel } from './AchievementPanel';
 import { SpecialAbilities } from './SpecialAbilities';
 import { ResetPanel } from './ResetPanel';
-import { CrystalShop, POSSIBLE_BONUSES } from './CrystalShop'
-import { TrophyIcon, ShoppingCartIcon, SparklesIcon } from 'lucide-react';
-
+import { CrystalShop } from './CrystalShop';
+import { POSSIBLE_BONUSES, BonusType } from './bonuses';
+import { TrophyIcon, ShoppingCartIcon, SparklesIcon, GemIcon } from 'lucide-react';
 // Types
 
 type UpgradeType = 'clickPower' | 'autoClicker' | 'doublePoints';
@@ -49,7 +49,7 @@ function calculateUpgradeStats(baseCost: number, baseIncrement: number, level: n
   const costMultiplier = Math.pow(1.45, level) * (isTierLevel ? 5 : 1);
   const cost = baseCost * costMultiplier;
   const tierBoost = isTierLevel ? 6.0 : 1;
-  const increment = baseIncrement * Math.pow(1.03, level) * tierBoost;
+  const increment = baseIncrement * Math.pow(1.06, level) * tierBoost;
   return {
     tier,
     cost: Math.floor(cost),
@@ -63,14 +63,15 @@ export function ClickerGame() {
   const [pointsPerSecond, setPointsPerSecond] = useState(0);
   const [multiplier, setMultiplier] = useState(1);
   const [clickCount, setClickCount] = useState(0);
-  const [prestigeMultiplier, setPrestigeMultiplier] = useState(1);
+  const [prestigeMultiplier] = useState(1);
   const [abilityUses, setAbilityUses] = useState(0);
   const [resetCount, setResetCount] = useState(0);
-  const [autoBuyEnabled, setAutoBuyEnabled] = useState(false);
+  const [autoBuyEnabled, setAutoBuyEnabled] = useState(true);
   const [crystals, setCrystals] = useState(0);
-  const [activeDraws, setActiveDraws] = useState<BonusDraw[]>([]);
+  const [activeTab, setActiveTab] = useState<'upgrades' | 'abilities' | 'achievements' | 'crystals'>('upgrades');
 
-  type BonusDraw = (typeof POSSIBLE_BONUSES)[number] & { id: number };
+  type BonusDraw = BonusType & { id: number };
+  const [activeDraws, setActiveDraws] = useState<BonusDraw[]>([]);
 
   const [upgrades, setUpgrades] = useState<Upgrades>(() => {
     const baseUpgrades: Record<UpgradeType, { cost: number; increment: number }> = {
@@ -111,8 +112,20 @@ export function ClickerGame() {
     { id: 16, name: 'First Reset', description: 'Do 1 reset', unlocked: false, requirement: 1 },
     { id: 17, name: 'Reset Lover', description: 'Do 5 resets', unlocked: false, requirement: 5 },
     { id: 18, name: 'Reset Maniac', description: 'Do 10 resets', unlocked: false, requirement: 10 },
-    { id: 19, name: 'Prestige Starter', description: 'Get prestige multiplier x10', unlocked: false, requirement: 10 },
-    { id: 20, name: 'Prestige Pro', description: 'Get prestige multiplier x100', unlocked: false, requirement: 100 },
+    {
+      id: 19,
+      name: 'Crystal Collector',
+      description: 'Earn 10 crystals in one reset',
+      unlocked: false,
+      requirement: 10
+    },
+    {
+      id: 20,
+      name: 'Crystal Hoarder',
+      description: 'Earn 100 crystals in one reset',
+      unlocked: false,
+      requirement: 100
+    },
     { id: 21, name: 'Ultimate Riches', description: 'Reach 1 billion points', unlocked: false, requirement: 1_000_000_000 },
     { id: 22, name: 'You Win!', description: 'Unlock all achievements', unlocked: false, requirement: 22 },
   ];
@@ -148,10 +161,8 @@ export function ClickerGame() {
     }
   ]);
   
-  const [activeTab, setActiveTab] = useState<'upgrades' | 'abilities' | 'achievements'>('upgrades');
-
   const handlePrestigeReset = () => {
-    const earnedCrystals = Math.floor(Math.sqrt(points / 1000));
+    const earnedCrystals = Math.floor(Math.sqrt(points / 10000));
     if (earnedCrystals > 0) {
       setCrystals(prev => prev + earnedCrystals);
     }
@@ -216,12 +227,17 @@ export function ClickerGame() {
 
   };
 
-  const handleClick = () => {
-    const pointsToAdd = pointsPerClick * multiplier * prestigeMultiplier;
-    setPoints(prev => prev + pointsToAdd);
-    setClickCount(prev => prev + 1);
-    checkAchievements();
-  };
+  const prestigeBonusMultiplier = activeDraws
+  .filter(b => b.type === 'prestigeMultiplier')
+  .reduce((total, b) => total * (1 + b.bonus), 1);
+
+  const clickBonusMultiplier = activeDraws
+  .filter(b => b.type === 'clickMultiplier')
+  .reduce((total, b) => total + b.bonus, 0);
+
+const autoBonusMultiplier = activeDraws
+  .filter(b => b.type === 'autoMultiplier')
+  .reduce((total, b) => total + b.bonus, 0);
 
   const purchaseUpgrade = (upgradeType: UpgradeType) => {
     const upgrade = upgrades[upgradeType];
@@ -273,6 +289,19 @@ export function ClickerGame() {
     }
   };
 
+  const handleDrawBonus = () => {
+    const cost = 10;
+    if (crystals < cost) return;
+    const roll = Math.random();
+    const rarity = roll < 0.6 ? 'common' : roll < 0.9 ? 'rare' : 'epic';
+    const pool = POSSIBLE_BONUSES.filter(b => b.rarity === rarity);
+    const selected = pool[Math.floor(Math.random() * pool.length)];
+    setCrystals(prev => prev - cost);
+    setActiveDraws(prev => [...prev, { ...selected, id: Date.now() }]);
+  };
+
+  const crystalsToEarn = Math.floor(Math.sqrt(points / 10000));
+
   const checkAchievements = () => {
     const newAchievements = [...achievements];
     const totalUpgrades = Object.values(upgrades).reduce((sum, u) => sum + u.level, 0);
@@ -299,8 +328,8 @@ export function ClickerGame() {
         (id === 16 && resetCount >= requirement) ||
         (id === 17 && resetCount >= requirement) ||
         (id === 18 && resetCount >= requirement) ||
-        (id === 19 && prestigeMultiplier >= requirement) ||
-        (id === 20 && prestigeMultiplier >= requirement) ||
+        (id === 19 && crystalsToEarn >= requirement) ||
+        (id === 20 && crystalsToEarn >= requirement) ||
         (id === 21 && points >= requirement) ||
         (id === 22 && unlockedCount >= 21)
       ) {
@@ -313,7 +342,7 @@ export function ClickerGame() {
   useEffect(() => {
     const interval = setInterval(() => {
       if (pointsPerSecond > 0) {
-        setPoints(prev => prev + pointsPerSecond * multiplier * prestigeMultiplier);
+        setPoints(prev => prev + pointsPerSecond * (1 + autoBonusMultiplier) * multiplier * prestigeMultiplier);
         checkAchievements();
       }
     }, 1000);
@@ -362,47 +391,113 @@ export function ClickerGame() {
     return () => clearInterval(interval);
   }, [autoBuyEnabled, points, upgrades]);
 
+  const handleClick = () => {
+    const pointsToAdd = pointsPerClick * (1 + clickBonusMultiplier) * multiplier * prestigeMultiplier * prestigeBonusMultiplier;
+    setPoints(prev => prev + pointsToAdd);
+    setClickCount(prev => prev + 1);
+    checkAchievements();
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-4xl font-bold text-center mb-8">Clicker Adventure</h1>
-      <ResourceDisplay points={points} pointsPerClick={pointsPerClick} pointsPerSecond={pointsPerSecond} multiplier={multiplier} />
-      <ClickArea handleClick={handleClick} pointsPerClick={pointsPerClick} multiplier={multiplier} prestigeMultiplier={prestigeMultiplier} />
-      <div className="mt-8 bg-gray-800 bg-opacity-50 rounded-lg p-4">
-      <div className="flex justify-between items-center border-b border-gray-700 mb-4">
-  <div className="flex">
-    <button className={`flex items-center px-4 py-2 ${activeTab === 'upgrades' ? 'bg-purple-700 rounded-t-lg' : 'text-gray-300'}`} onClick={() => setActiveTab('upgrades')}>
-      <ShoppingCartIcon className="w-5 h-5 mr-1" /> Upgrades
-    </button>
-    <button className={`flex items-center px-4 py-2 ${activeTab === 'abilities' ? 'bg-purple-700 rounded-t-lg' : 'text-gray-300'}`} onClick={() => setActiveTab('abilities')}>
-      <SparklesIcon className="w-5 h-5 mr-1" /> Abilities
-    </button>
-    <button className={`flex items-center px-4 py-2 ${activeTab === 'achievements' ? 'bg-purple-700 rounded-t-lg' : 'text-gray-300'}`} onClick={() => setActiveTab('achievements')}>
-      <TrophyIcon className="w-5 h-5 mr-1" /> Achievements
-    </button>
-  </div>
 
-  {resetCount > 0 && (
-  <label className="flex items-center gap-2 text-white text-sm pr-2">
-    <input
-      type="checkbox"
-      checked={autoBuyEnabled}
-      onChange={() => setAutoBuyEnabled(prev => !prev)}
-      className="w-4 h-4"
+      <ResourceDisplay
+        points={points}
+        pointsPerClick={pointsPerClick}
+        pointsPerSecond={pointsPerSecond}
+        multiplier={multiplier}
+      />
+
+<ClickArea
+  handleClick={handleClick}
+  pointsPerClick={pointsPerClick}
+  multiplier={multiplier}
+  prestigeMultiplier={prestigeMultiplier * prestigeBonusMultiplier}
+  clickBonusMultiplier={clickBonusMultiplier}
+/>
+
+      <div className="mt-8 bg-gray-800 bg-opacity-50 rounded-lg p-4">
+        <div className="flex justify-between items-center border-b border-gray-700 mb-4">
+          <div className="flex">
+            <button
+              className={`flex items-center px-4 py-2 ${activeTab === 'upgrades' ? 'bg-purple-700 rounded-t-lg' : 'text-gray-300'}`}
+              onClick={() => setActiveTab('upgrades')}
+            >
+              <ShoppingCartIcon className="w-5 h-5 mr-1" /> Upgrades
+            </button>
+            <button
+              className={`flex items-center px-4 py-2 ${activeTab === 'abilities' ? 'bg-purple-700 rounded-t-lg' : 'text-gray-300'}`}
+              onClick={() => setActiveTab('abilities')}
+            >
+              <SparklesIcon className="w-5 h-5 mr-1" /> Abilities
+            </button>
+            <button
+              className={`flex items-center px-4 py-2 ${activeTab === 'achievements' ? 'bg-purple-700 rounded-t-lg' : 'text-gray-300'}`}
+              onClick={() => setActiveTab('achievements')}
+            >
+              <TrophyIcon className="w-5 h-5 mr-1" /> Achievements
+            </button>
+            <button
+              className={`flex items-center px-4 py-2 ${activeTab === 'crystals' ? 'bg-purple-700 rounded-t-lg' : 'text-gray-300'}`}
+              onClick={() => setActiveTab('crystals')}
+            >
+              <GemIcon className="w-5 h-5 mr-1" /> Crystal Shop
+            </button>
+          </div>
+          <div className="flex items-center gap-2 text-white text-sm">
+  <span className="text-gray-300">Auto-Buy</span>
+  <button
+    onClick={() => setAutoBuyEnabled(prev => !prev)}
+    className={`relative w-12 h-6 rounded-full transition-colors duration-300 ${
+      autoBuyEnabled ? 'bg-purple-600' : 'bg-gray-600'
+    }`}
+  >
+    <span
+      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-300 ${
+        autoBuyEnabled ? 'translate-x-6' : ''
+      }`}
     />
-    Auto-Buy
-  </label>
-)}
+  </button>
 </div>
-        {activeTab === 'upgrades' && <UpgradeShop upgrades={upgrades} points={points} purchaseUpgrade={purchaseUpgrade} />}
-        {activeTab === 'abilities' && <SpecialAbilities abilities={abilities} points={points} useAbility={useAbility} />}
-        {activeTab === 'achievements' && <AchievementPanel achievements={achievements} />}
-        {points >= 1_000_000 && (
-  <ResetPanel
-    points={points}
-    crystalsToEarn={Math.floor(Math.sqrt(points / 1000))}
-    onReset={handlePrestigeReset}
-  />
-)}
+        </div>
+
+        {activeTab === 'upgrades' && (
+          <UpgradeShop
+            upgrades={upgrades}
+            points={points}
+            purchaseUpgrade={purchaseUpgrade}
+          />
+        )}
+
+        {activeTab === 'abilities' && (
+          <SpecialAbilities
+            abilities={abilities}
+            points={points}
+            useAbility={useAbility}
+          />
+        )}
+
+        {activeTab === 'achievements' && (
+          <AchievementPanel achievements={achievements} />
+        )}
+
+        {activeTab === 'crystals' && (
+          <CrystalShop
+            crystals={crystals}
+            onDraw={handleDrawBonus}
+            activeDraws={activeDraws}
+          />
+        )}
+
+        <div className="mt-6">
+        <ResetPanel
+  points={points}
+  crystalsToEarn={crystalsToEarn}
+  onReset={handlePrestigeReset}
+  canReset={crystalsToEarn > 0}
+/>
+        </div>
       </div>
     </div>
   );
