@@ -5,7 +5,6 @@ type Props = {
   handleClick: () => void;
   pointsPerClick: number;
   multiplier: number;
-  prestigeMultiplier: number;
   clickBonusMultiplier: number;
 };
 
@@ -16,7 +15,7 @@ type ClickEffect = {
   points: number;
 };
 
-export function ClickArea({ handleClick, pointsPerClick, multiplier, prestigeMultiplier, clickBonusMultiplier }: Props) {
+export function ClickArea({ handleClick, pointsPerClick, multiplier, clickBonusMultiplier }: Props) {
   const [clickEffects, setClickEffects] = useState<ClickEffect[]>([]);
 
   const handleAreaClick = (e: MouseEvent<HTMLButtonElement>) => {
@@ -27,7 +26,7 @@ export function ClickArea({ handleClick, pointsPerClick, multiplier, prestigeMul
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     const points =
-    pointsPerClick * (1 + clickBonusMultiplier) * multiplier * prestigeMultiplier;
+    pointsPerClick * (1 + clickBonusMultiplier) * multiplier;
   
     setClickEffects(prev => [
       ...prev,

@@ -1,20 +1,24 @@
 import { SparklesIcon, GemIcon } from 'lucide-react';
 
 // Définition des couleurs selon la rareté
-const RARITY_COLORS: Record<'common' | 'rare' | 'epic', string> = {
-  common: 'text-gray-300',
-  rare: 'text-blue-300',
-  epic: 'text-purple-300',
+// src/components/CrystalShop.tsx
+const RARITY_COLORS: Record<'common' | 'rare' | 'epic' | 'legendary' | 'mythic', string> = {
+  common:  'text-gray-300',
+  rare:    'text-blue-300',
+  epic:    'text-purple-300',
+  legendary: 'text-yellow-500',
+  mythic:  'text-pink-500',
 };
+
 
 // Type du bonus
 export type BonusDraw = {
-  id: number;
-  name: string;
-  rarity: 'common' | 'rare' | 'epic';
-  bonus: number;
-  type: 'clickMultiplier' | 'autoMultiplier' | 'prestigeMultiplier';
-};
+    id: number;
+    name: string;
+    rarity: 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
+    bonus: number;
+type: 'clickMultiplier' | 'autoMultiplier' | 'multiplierBonus'
+  };
 
 // Props typées pour le composant
 type Props = {

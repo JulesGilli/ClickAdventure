@@ -43,13 +43,19 @@ type Achievement = {
   requirement: number;
 };
 
-function calculateUpgradeStats(baseCost: number, baseIncrement: number, level: number) {
-  const tier = Math.floor(level / 10) + 1;
+function calculateUpgradeStats(
+  baseCost: number,
+  baseIncrement: number,
+  level: number,
+  isAuto: boolean = false    // ← déclaration de isAuto
+) {
+  const tier       = Math.floor(level / 10) + 1;
   const isTierLevel = level > 0 && level % 10 === 0;
-  const costMultiplier = Math.pow(1.45, level) * (isTierLevel ? 5 : 1);
-  const cost = baseCost * costMultiplier;
-  const tierBoost = isTierLevel ? 6.0 : 1;
-  const increment = baseIncrement * Math.pow(1.06, level) * tierBoost;
+  const growth     = isAuto ? 1.6 : 1.45;  // ← OK maintenant
+  const costMultiplier = Math.pow(growth, level) * (isTierLevel ? 5 : 1);
+  const cost       = baseCost * costMultiplier;
+  const tierBoost  = isTierLevel ? 6.0 : 1;
+  const increment  = baseIncrement * Math.pow(1.06, level) * tierBoost;
   return {
     tier,
     cost: Math.floor(cost),
@@ -63,7 +69,6 @@ export function ClickerGame() {
   const [pointsPerSecond, setPointsPerSecond] = useState(0);
   const [multiplier, setMultiplier] = useState(1);
   const [clickCount, setClickCount] = useState(0);
-  const [prestigeMultiplier] = useState(1);
   const [abilityUses, setAbilityUses] = useState(0);
   const [resetCount, setResetCount] = useState(0);
   const [autoBuyEnabled, setAutoBuyEnabled] = useState(true);
@@ -73,25 +78,30 @@ export function ClickerGame() {
   type BonusDraw = BonusType & { id: number };
   const [activeDraws, setActiveDraws] = useState<BonusDraw[]>([]);
 
-  const [upgrades, setUpgrades] = useState<Upgrades>(() => {
-    const baseUpgrades: Record<UpgradeType, { cost: number; increment: number }> = {
-      clickPower: { cost: 10, increment: 1 },
-      autoClicker: { cost: 50, increment: 1 },
-      doublePoints: { cost: 200, increment: 0.1 }
-    };
+const [upgrades, setUpgrades] = useState<Upgrades>(() => {
+  const baseUpgrades: Record<UpgradeType, { cost: number; increment: number }> = {
+    clickPower:   { cost: 10,  increment: 1   },
+    autoClicker:  { cost: 50,  increment: 1   },
+    doublePoints: { cost: 200, increment: 0.1 }
+  };
 
-    const initialUpgrades = {} as Upgrades;
-    (Object.keys(baseUpgrades) as UpgradeType[]).forEach(type => {
-      const { cost } = calculateUpgradeStats(baseUpgrades[type].cost, baseUpgrades[type].increment, 1);
-      initialUpgrades[type] = {
-        level: 0,
-        cost,
-        increment: 0,
-        tier: 1
-      };
-    });
-    return initialUpgrades;
+  const initialUpgrades = {} as Upgrades;
+  (Object.keys(baseUpgrades) as UpgradeType[]).forEach(type => {
+    const { cost } = calculateUpgradeStats(
+      baseUpgrades[type].cost,
+      baseUpgrades[type].increment,
+      1,
+      type === 'autoClicker'
+    );
+    initialUpgrades[type] = {
+      level:     0,
+      cost,
+      increment: 0,
+      tier:      1
+    };
   });
+  return initialUpgrades;
+});
 
   const allAchievements: Achievement[] = [
     { id: 1, name: 'First Click', description: 'Click for the first time', unlocked: false, requirement: 1 },
@@ -227,9 +237,9 @@ export function ClickerGame() {
 
   };
 
-  const prestigeBonusMultiplier = activeDraws
-  .filter(b => b.type === 'prestigeMultiplier')
-  .reduce((total, b) => total * (1 + b.bonus), 1);
+const multiplierBonus = activeDraws
+  .filter(b => b.type === 'multiplierBonus')
+  .reduce((sum, b) => sum + b.bonus, 0);
 
   const clickBonusMultiplier = activeDraws
   .filter(b => b.type === 'clickMultiplier')
@@ -239,32 +249,39 @@ const autoBonusMultiplier = activeDraws
   .filter(b => b.type === 'autoMultiplier')
   .reduce((total, b) => total + b.bonus, 0);
 
-  const purchaseUpgrade = (upgradeType: UpgradeType) => {
-    const upgrade = upgrades[upgradeType];
-    const nextLevel = upgrade.level + 1;
+const purchaseUpgrade = (upgradeType: UpgradeType) => {
+  const upgrade    = upgrades[upgradeType];
+  const nextLevel  = upgrade.level + 1;
+  const baseCost   = upgradeType === 'clickPower' ? 10 : upgradeType === 'autoClicker' ? 50 : 200;
+  const baseIncr   = upgradeType === 'clickPower' ? 1  : upgradeType === 'autoClicker' ? 1  : 0.1;
+  const isAuto     = upgradeType === 'autoClicker';
 
-    const baseCost = upgradeType === 'clickPower' ? 10 : upgradeType === 'autoClicker' ? 50 : 200;
-    const baseIncrement = upgradeType === 'clickPower' ? 1 : upgradeType === 'autoClicker' ? 1 : 0.1;
+  const { cost, increment, tier } = calculateUpgradeStats(
+    baseCost, baseIncr, nextLevel, isAuto
+  );
 
-    const { cost, increment, tier } = calculateUpgradeStats(baseCost, baseIncrement, nextLevel);
+  if (points >= cost) {
+    setPoints(prev => prev - cost);
 
-    if (points >= cost) {
-      setPoints(prev => prev - cost);
-      const { cost: nextCost } = calculateUpgradeStats(baseCost, baseIncrement, nextLevel + 1);
-      const newUpgrades = { ...upgrades };
-      newUpgrades[upgradeType] = {
-        level: nextLevel,
-        cost: nextCost,
-        increment: upgrade.increment + increment,
-        tier
-      };
-      if (upgradeType === 'clickPower') setPointsPerClick(prev => prev + increment);
-      else if (upgradeType === 'autoClicker') setPointsPerSecond(prev => prev + increment);
-      else if (upgradeType === 'doublePoints') setMultiplier(prev => prev + increment);
-      setUpgrades(newUpgrades);
-      checkAchievements();
-    }
-  };
+    const { cost: nextCost } = calculateUpgradeStats(
+      baseCost, baseIncr, nextLevel + 1, isAuto
+    );
+
+    const newUpgrades = { ...upgrades, [upgradeType]: {
+      level:     nextLevel,
+      cost:      nextCost,
+      increment: upgrade.increment + increment,
+      tier
+    }};
+    setUpgrades(newUpgrades);
+
+    if (upgradeType === 'clickPower')     setPointsPerClick(prev => prev + increment);
+    else if (isAuto)                      setPointsPerSecond(prev => prev + increment);
+    else /* doublePoints */               setMultiplier(prev => prev + increment);
+
+    checkAchievements();
+  }
+};
 
   const useAbility = (abilityId: number) => {
     const now = Date.now();
@@ -342,12 +359,16 @@ const autoBonusMultiplier = activeDraws
   useEffect(() => {
     const interval = setInterval(() => {
       if (pointsPerSecond > 0) {
-        setPoints(prev => prev + pointsPerSecond * (1 + autoBonusMultiplier) * multiplier * prestigeMultiplier);
-        checkAchievements();
+setPoints(prev =>
+  prev
+  + pointsPerSecond
+  * (1 + autoBonusMultiplier)
+  * (multiplier * (1 + multiplierBonus))
+);        checkAchievements();
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [pointsPerSecond, multiplier, prestigeMultiplier]);
+  }, [pointsPerSecond, multiplier, multiplierBonus]);
 
   useEffect(() => {
     const upgradeAbilities = () => {
@@ -392,11 +413,21 @@ const autoBonusMultiplier = activeDraws
   }, [autoBuyEnabled, points, upgrades]);
 
   const handleClick = () => {
-    const pointsToAdd = pointsPerClick * (1 + clickBonusMultiplier) * multiplier * prestigeMultiplier * prestigeBonusMultiplier;
+const pointsToAdd = pointsPerClick
+  * (1 + clickBonusMultiplier)
+  * (multiplier * (1 + multiplierBonus));    
     setPoints(prev => prev + pointsToAdd);
     setClickCount(prev => prev + 1);
     checkAchievements();
   };
+
+
+  // Calcule votre vrai gain auto combiné :
+const effectivePPS =
+  pointsPerSecond
+  * (1 + autoBonusMultiplier)
+  * (multiplier * (1 + multiplierBonus));
+
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -405,15 +436,14 @@ const autoBonusMultiplier = activeDraws
       <ResourceDisplay
         points={points}
         pointsPerClick={pointsPerClick}
-        pointsPerSecond={pointsPerSecond}
+        pointsPerSecond={effectivePPS}
         multiplier={multiplier}
       />
 
 <ClickArea
   handleClick={handleClick}
   pointsPerClick={pointsPerClick}
-  multiplier={multiplier}
-  prestigeMultiplier={prestigeMultiplier * prestigeBonusMultiplier}
+  multiplier={multiplier * (1 + multiplierBonus)}
   clickBonusMultiplier={clickBonusMultiplier}
 />
 
