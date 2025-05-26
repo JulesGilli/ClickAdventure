@@ -307,15 +307,31 @@ const purchaseUpgrade = (upgradeType: UpgradeType) => {
   };
 
   const handleDrawBonus = () => {
-    const cost = 10;
-    if (crystals < cost) return;
-    const roll = Math.random();
-    const rarity = roll < 0.6 ? 'common' : roll < 0.9 ? 'rare' : 'epic';
-    const pool = POSSIBLE_BONUSES.filter(b => b.rarity === rarity);
-    const selected = pool[Math.floor(Math.random() * pool.length)];
-    setCrystals(prev => prev - cost);
-    setActiveDraws(prev => [...prev, { ...selected, id: Date.now() }]);
-  };
+  const cost = 10;
+  if (crystals < cost) return;
+
+  const roll = Math.random();
+  let rarity: BonusType['rarity'];
+
+  if (roll < 0.60) {
+    rarity = 'common';      // 60%
+  } else if (roll < 0.85) {
+    rarity = 'rare';        // +25% = 85%
+  } else if (roll < 0.97) {
+    rarity = 'epic';        // +12% = 97%
+  } else if (roll < 0.995) {
+    rarity = 'legendary';   // +2.5% = 99.5%
+  } else {
+    rarity = 'mythic';      // +0.5% = 100%
+  }
+
+  const pool = POSSIBLE_BONUSES.filter(b => b.rarity === rarity);
+  const selected = pool[Math.floor(Math.random() * pool.length)];
+
+  setCrystals(prev => prev - cost);
+  setActiveDraws(prev => [...prev, { ...selected, id: Date.now() }]);
+};
+
 
   const crystalsToEarn = Math.floor(Math.sqrt(points / 10000));
 
@@ -437,7 +453,7 @@ const effectivePPS =
         points={points}
         pointsPerClick={pointsPerClick}
         pointsPerSecond={effectivePPS}
-        multiplier={multiplier}
+        multiplier={multiplier * (1 + multiplierBonus)}
       />
 
 <ClickArea
